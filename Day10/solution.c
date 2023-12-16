@@ -49,22 +49,6 @@ typedef struct Field_t
     bool visited;
 } Field_t;
 
-void PrintGrid(Field_t grid[GRID_SIZE][GRID_SIZE])
-{
-    for (int i = 0; i < GRID_SIZE; i++)
-    {
-        for (int j = 0; j < GRID_SIZE; j++)
-        {
-            if (grid[i][j].visited)
-                printf("#");
-            else
-                printf("O");
-        }
-        printf("\n");
-    }
-    printf("\n");
-}
-
 Coords_t FindStart(Field_t grid[GRID_SIZE][GRID_SIZE])
 {
     Coords_t retval = { .x = 0, .y = 0 };
@@ -80,6 +64,42 @@ Coords_t FindStart(Field_t grid[GRID_SIZE][GRID_SIZE])
         }
     }
     return retval;
+}
+
+bool IsInLoop(Field_t grid[GRID_SIZE][GRID_SIZE], int y, int x)
+{
+    int crosses = 0;
+    for (int i = 0; i < x; i++)
+    {
+        if (grid[y][i].visited) // F---J  L---7
+        {
+            if (grid[y][i].tile == NORTH_TO_EAST || grid[y][i].tile == NORTH_TO_WEST || grid[y][i].tile == NORTH_TO_SOUTH || grid[y][i].tile == START)
+            {
+                crosses++;
+            }
+        }
+    }
+    return crosses % 2;
+}
+
+int CalculateInsideLoop(Field_t grid[GRID_SIZE][GRID_SIZE])
+{
+    int insideLoop = 0;
+    for (int i = 0; i < GRID_SIZE; i++)
+    {
+        for (int j = 0; j < GRID_SIZE; j++)
+        {
+            if (grid[i][j].visited)
+            {
+                continue;
+            }
+            if (IsInLoop(grid, i, j))
+            {
+                insideLoop++;
+            }
+        }
+    }
+    return insideLoop;
 }
 
 void GetDelt(int* dx, int* dy, Direction_t dir)
@@ -160,7 +180,9 @@ int FindLoop(Field_t grid[GRID_SIZE][GRID_SIZE], Coords_t position)
     Direction_t dir = START_DIR;
     int dx;
     int dy;
-    int steps = 0;
+    int steps                            = 0;
+    grid[position.y][position.x].visited = true;
+
     do
     {
         steps++;
@@ -210,8 +232,9 @@ int main()
     int loopSize = FindLoop(grid, start);
 
     int result = loopSize / 2;
-    // PrintGrid(grid);
 
-    printf("loopsize: %d, result: %d\n", loopSize, result);
+    int insideLoop = CalculateInsideLoop(grid);
+
+    printf("result: %d, insideLoop: %d\n", result, insideLoop);
     return 0;
 }
