@@ -1,5 +1,4 @@
 #include "Vector.h"
-#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,107 +7,143 @@
 #define EXAMPLE (0)
 
 #if EXAMPLE
-#define LINE_LEN 25
 #define INPUT_FILE "./example.txt"
 #define ROWS 6
 #else
-#define LINE_LEN 250
 #define INPUT_FILE "./input.txt"
 #define ROWS 1000
-#endif
-#define START_NUMBERS 21
+#endif               // EXAMPLE
+#define LINE_LEN 250 // 18
 
 #define INIT_SIZE 8
+#define MEMORY_SIZE 1000
 
-bool IsVectorEqual(Vector_t v1, Vector_t v2)
+#define MEM_MAX 0xFFFFFFFFFFFFFFFF
+typedef struct memo_t
 {
-    if (v1.items != v2.items)
-        return false;
+    int numbersAmount;
+    int* numbers;
+    char* s;
+    llu_t result;
+} memo_t;
 
-    return memcmp(v1.data, v2.data, sizeof(int) * v1.items) == 0;
+memo_t memory[MEMORY_SIZE];
+
+int Hash(const char* str)
+{
+    unsigned long hash = 317;
+    int c;
+
+    while ((c = *str++))
+        hash = ((hash << 5) + hash) + (c * 2179);
+
+    return hash % MEMORY_SIZE;
 }
 
-bool IsArrangementValid(Vector_t line, Vector_t rowNumbers)
+bool CharacterPresent(const char* str, char c, int len)
 {
-    int n = line.items;
-
-    Vector_t runs = InitVector(INIT_SIZE);
-
-    int i = 0;
-    while (i < n)
+    for (int i = 0; i < len; i++)
     {
-        while (i < n && !line.data[i])
-        {
-            i++;
-        }
-        if (i == n)
-            break;
-        int j = i;
-        int c = 0;
-        while (j < n && line.data[j] != 0)
-        {
-            j++;
-            c++;
-        }
-        AddToVector(&runs, c);
-        i = j;
+        if (str[i] == c)
+            return true;
     }
-
-    bool valid = IsVectorEqual(runs, rowNumbers);
-    FreeVector(&runs);
-
-    return valid;
+    return false;
 }
 
-int CalculateArrangements(char* rowString, Vector_t rowNumbers)
+bool IsInMemory(unsigned hash, const char* s, const int* n, int amount)
 {
-    Vector_t line = InitVector(INIT_SIZE);
-    Vector_t idxs = InitVector(INIT_SIZE);
-
-    for (int i = 0; i < strlen(rowString); i++)
+    if (memory[hash].result < MEM_MAX)
     {
-        if (rowString[i] == '.')
+        if (strcmp(memory[hash].s, s) != 0)
+            return false;
+        if (memory[hash].numbersAmount != amount)
+            return false;
+        for (int i = 0; i < amount; i++)
         {
-            AddToVector(&line, 0);
-        }
-        else if (rowString[i] == '?')
-        {
-            AddToVector(&line, -1);
-            AddToVector(&idxs, i);
-        }
-        else if (rowString[i] == '#')
-        {
-            AddToVector(&line, 1);
-        }
-    }
-
-    int arrangements = 0;
-    for (unsigned int mask = 1; mask <= pow(2, idxs.items); mask++)
-    {
-        Vector_t lineCopy = CopyVector(line);
-
-        for (int idx = 0; idx < idxs.items; idx++)
-        {
-            if (mask & (1 << idx))
+            if (n[i] != memory[hash].numbers[i])
             {
-                lineCopy.data[idxs.data[idx]] = 0;
+                return false;
+            }
+        }
+        return true;
+    }
+    return false;
+}
+
+llu_t CalculateArrangementsRecursive(const char* rowString, const int* numbers, int numbersAmount)
+{
+    int sLen = strlen(rowString);
+    if (sLen == 0)
+    {
+        if (numbersAmount == 0)
+        {
+            return 1;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+    if (numbersAmount == 0)
+    {
+        return CharacterPresent(rowString, '#', strlen(rowString)) ? 0 : 1;
+    }
+
+    unsigned hash = Hash(rowString);
+
+    bool inMemory = IsInMemory(hash, rowString, numbers, numbersAmount);
+    if (inMemory)
+    {
+        return memory[hash].result;
+    }
+
+    llu_t result = 0;
+
+    if (rowString[0] == '.' || rowString[0] == '?')
+    {
+        result += CalculateArrangementsRecursive(&rowString[1], numbers, numbersAmount);
+    }
+    if (rowString[0] == '#' || rowString[0] == '?')
+    {
+        if (numbers[0] <= sLen && !CharacterPresent(rowString, '.', numbers[0]) && (numbers[0] == sLen || (numbers[0] < sLen && rowString[numbers[0]] != '#')))
+        {
+            if (numbers[0] + 1 >= sLen)
+            {
+                result += CalculateArrangementsRecursive("", &numbers[1], numbersAmount - 1);
             }
             else
             {
-                lineCopy.data[idxs.data[idx]] = 1;
+                result += CalculateArrangementsRecursive(&rowString[numbers[0] + 1], &numbers[1], numbersAmount - 1);
             }
         }
-
-        if (IsArrangementValid(lineCopy, rowNumbers))
-        {
-            arrangements++;
-        }
-        FreeVector(&lineCopy);
     }
+    memo_t res;
+    int* numCopy = (int*)malloc(sizeof(int) * numbersAmount);
+    memcpy(numCopy, numbers, sizeof(int) * numbersAmount);
 
-    FreeVector(&line);
-    FreeVector(&idxs);
-    return arrangements;
+    char* strCopy = (char*)malloc(sizeof(char) * (sLen + 1));
+    memset(strCopy, '\0', sizeof(char) * (sLen + 1));
+    strcpy(strCopy, rowString);
+    res.numbers       = numCopy;
+    res.s             = strCopy;
+    res.result        = result;
+    res.numbersAmount = numbersAmount;
+
+    memory[hash] = res;
+
+    return result;
+}
+
+void FreeMemory()
+{
+    for (int i = 0; i < MEMORY_SIZE; i++)
+    {
+        if (memory[i].result < MEM_MAX)
+        {
+            free(memory[i].numbers);
+            free(memory[i].s);
+        }
+    }
 }
 
 int main()
@@ -124,10 +159,13 @@ int main()
         return -1;
     }
     char* p;
-    int sum = 0;
+    llu_t sum = 0;
+
+    memset(memory, 0xFF, sizeof(memory));
 
     for (int idx = 0; idx < ROWS; idx++)
     {
+
         Vector_t rowNumbers = InitVector(INIT_SIZE);
         p                   = fgets(line, sizeof(line), pInputFile);
         if (NULL == p)
@@ -139,9 +177,18 @@ int main()
             cnt++;
         }
 
-        char* rowString = (char*)malloc(sizeof(char) * cnt + 1);
-        memset(rowString, 0, sizeof(char) * cnt + 1);
-        strncpy(rowString, line, cnt);
+        int CopiesNumber = 5;
+        char* rowString  = (char*)malloc(sizeof(char) * ((cnt + 1) * CopiesNumber));
+        memset(rowString, 0, sizeof(char) * ((cnt + 1) * CopiesNumber));
+
+        for (int i = 0; i < CopiesNumber; i++)
+        {
+            strncpy(&rowString[(cnt + 1) * i], line, cnt);
+            if (i < CopiesNumber - 1)
+            {
+                strcat(rowString, "?");
+            }
+        }
 
         p = p + cnt + 1;
 
@@ -154,16 +201,31 @@ int main()
             AddToVector(&rowNumbers, tmp);
         }
 
-        int arrangements = CalculateArrangements(rowString, rowNumbers);
+        int itemCount = rowNumbers.items;
+        int* numbers  = (int*)malloc(sizeof(int) * CopiesNumber * rowNumbers.items);
+        memset(numbers, 0, sizeof(int) * CopiesNumber * rowNumbers.items);
 
-        // printf("%d.  arrangements: %llu\n", idx + 1, arrangements);
+        for (int x = 0; x < CopiesNumber; x++)
+        {
+            for (int i = 0; i < itemCount; i++)
+            {
+                numbers[x * itemCount + i] = rowNumbers.data[i];
+            }
+        }
+
+        llu_t arrangements = (llu_t)CalculateArrangementsRecursive(rowString, numbers, CopiesNumber * rowNumbers.items);
 
         sum += arrangements;
+
         free(rowString);
+        free(numbers);
         FreeVector(&rowNumbers);
+
+        FreeMemory();
+        memset(memory, 0xFF, sizeof(memory));
     }
 
-    printf("sum: %d\n", sum);
+    printf("sum: %llu\n", sum);
 
     return 0;
 }
