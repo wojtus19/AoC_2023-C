@@ -13,23 +13,20 @@
 #endif // EXAMPLE
 
 #define LINE_LEN 20
-#define COLOR_LEN 6
-#define COLOR_LEN_STR "6"
 
+typedef long long int lld_t;
 typedef enum Direction_t
 {
-    NONE  = 0,
-    UP    = 'U',
-    DOWN  = 'D',
-    RIGHT = 'R',
-    LEFT  = 'L'
+    RIGHT = 0,
+    DOWN  = 1,
+    LEFT  = 2,
+    UP    = 3,
 } Direction_t;
 
 typedef struct Node_t
 {
     Direction_t direction;
-    int steps;
-    char color[COLOR_LEN];
+    lld_t steps;
 } Node_t;
 
 typedef struct Vector_t
@@ -41,8 +38,8 @@ typedef struct Vector_t
 
 typedef struct Coords_t
 {
-    int x;
-    int y;
+    lld_t x;
+    lld_t y;
 } Coords_t;
 
 Vector_t InitVector(int size)
@@ -85,7 +82,7 @@ void PrintVector(Vector_t vector)
 {
     for (int i = 0; i < vector.items; i++)
     {
-        printf("%c %d (#%s)\n", vector.data[i].direction, vector.data[i].steps, vector.data[i].color);
+        printf("dir: %d, steps: %lld\n", vector.data[i].direction, vector.data[i].steps);
     }
     printf("\n");
 }
@@ -112,23 +109,21 @@ int main()
 
     while (fgets(line, sizeof(line), pInputFile) != 0)
     {
-        char dir;
-        int steps;
-        char color[COLOR_LEN];
-        sscanf(line, "%c %d (#%6c)", &dir, &steps, color);
+        int dir;
+        lld_t steps;
+        sscanf(&line[5], "%*[(#]%5llx %d", &steps, &dir);
 
         Node_t node;
         node.direction = dir;
         node.steps     = steps;
-        strncpy(node.color, color, sizeof(node.color));
 
         AddToVector(&digPlan, node);
     }
 
     Coords_t* vertexes = (Coords_t*)malloc(sizeof(Coords_t) * (digPlan.items + 1));
 
-    int dx                  = 0;
-    int dy                  = 0;
+    lld_t dx                = 0;
+    lld_t dy                = 0;
     Coords_t first          = { .x = 0, .y = 0 };
     vertexes[0]             = first;
     vertexes[digPlan.items] = first;
@@ -167,23 +162,18 @@ int main()
         vertexes[vertexIdx] = newVertex;
     }
 
-    //for (int i = 0; i <= digPlan.items; i++)
-    //{
-    //    printf("(%d, %d)\n", vertexes[i].x, vertexes[i].y);
-    //}
-
     // Calculate area with Shoelace formula
 
-    int area = 0;
+    lld_t area = 0;
     for (int i = 1; i < digPlan.items; i++)
     {
         area += (vertexes[i - 1].x - vertexes[i + 1].x) * vertexes[i].y;
     }
-    area = abs(area) / 2;
+    area = llabs(area) / 2;
 
-    printf("area: %d\n", area);
+    printf("area: %lld\n", area);
 
-    int boundaryPoints = 0;
+    lld_t boundaryPoints = 0;
     for (int i = 0; i < digPlan.items; i++)
     {
         boundaryPoints += digPlan.data[i].steps;
@@ -194,13 +184,13 @@ int main()
     // A = i + b/2 - 1
     // i = A - b/2 + 1
 
-    int interiorPoints = area - (boundaryPoints / 2) + 1;
-    printf("interiorPoints: %d\n", interiorPoints);
+    lld_t interiorPoints = area - (boundaryPoints / 2) + 1;
+    printf("interiorPoints: %lld, boundaryPoints: %lld\n", interiorPoints, boundaryPoints);
 
     // interior points + boundary points = all points in polygon
-    int pointsSum = interiorPoints + boundaryPoints;
+    lld_t pointsSum = interiorPoints + boundaryPoints;
 
-    printf("pointsSum: %d\n", pointsSum);
+    printf("pointsSum: %lld\n", pointsSum);
 
     FreeVector(&digPlan);
     return 0;
