@@ -1,4 +1,3 @@
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,17 +7,9 @@
 #if EXAMPLE
 #define INPUT_FILE "./example.txt"
 #define INIT_SIZE 14
-#define GRID_HEIGHT 10
-#define GRID_WIDTH 7
-#define MIN_X 0
-#define MIN_Y 0
 #else
 #define INPUT_FILE "./input.txt"
 #define INIT_SIZE 784
-#define GRID_HEIGHT 800
-#define GRID_WIDTH 800
-#define MIN_X 200
-#define MIN_Y 300
 #endif // EXAMPLE
 
 #define LINE_LEN 20
@@ -48,11 +39,11 @@ typedef struct Vector_t
     int items;
 } Vector_t;
 
-typedef struct Field_t
+typedef struct Coords_t
 {
-    char tile;
-    bool visited;
-} Field_t;
+    int x;
+    int y;
+} Coords_t;
 
 Vector_t InitVector(int size)
 {
@@ -104,45 +95,6 @@ void FreeVector(Vector_t* vector)
     free(vector->data);
 }
 
-void PrintGrid(Field_t grid[GRID_HEIGHT][GRID_WIDTH])
-{
-    for (int i = 0; i < GRID_HEIGHT; i++)
-    {
-        for (int j = 0; j < GRID_WIDTH; j++)
-        {
-            printf("%c", grid[i][j].tile);
-        }
-        printf("\n");
-    }
-    printf("\n");
-}
-
-bool IsInBox(Field_t grid[GRID_HEIGHT][GRID_WIDTH], int y, int x)
-{
-    int crosses = 0;
-    for (int i = x + 1; i < GRID_WIDTH; i++)
-    {
-        if (grid[y][i].visited  && grid[y + 1][i].visited && grid[y - 1][i].visited)
-        {
-            crosses++;
-        }
-        else if(grid[y][i].visited && (grid[y + 1][i].visited || grid[y - 1][i].visited))
-        {
-            bool upperCol = grid[y - 1][i].visited;
-            while (grid[y][i].visited)
-            {
-                i++;
-            }
-            if((upperCol && grid[y + 1][i - 1].visited) || (!upperCol && grid[y - 1][i - 1].visited))
-            {
-                crosses++;
-            }
-
-        }
-    }
-    return crosses % 2;
-}
-
 int main()
 {
 
@@ -173,22 +125,15 @@ int main()
         AddToVector(&digPlan, node);
     }
 
-    // PrintVector(digPlan);
+    Coords_t* vertexes = (Coords_t*)malloc(sizeof(Coords_t) * (digPlan.items + 1));
 
-    Field_t grid[GRID_HEIGHT][GRID_WIDTH];
-    for (int i = 0; i < GRID_HEIGHT; i++)
-    {
-        for (int j = 0; j < GRID_WIDTH; j++)
-        {
-            grid[i][j].tile    = '.';
-            grid[i][j].visited = false;
-        }
-    }
+    int dx                  = 0;
+    int dy                  = 0;
+    Coords_t first          = { .x = 0, .y = 0 };
+    vertexes[0]             = first;
+    vertexes[digPlan.items] = first;
 
-    int dx   = 0;
-    int dy   = 0;
-    int posX = MIN_X;
-    int posY = MIN_Y;
+    int vertexIdx = 0;
     for (int i = 0; i < digPlan.items; i++)
     {
         switch (digPlan.data[i].direction)
@@ -215,44 +160,47 @@ int main()
             break;
         }
 
-        for (int x = 0; x < digPlan.data[i].steps; x++)
-        {
-            posX += 1 * dx;
-            posY += 1 * dy;
-            grid[posY][posX].tile    = '#';
-            grid[posY][posX].visited = true;
-        }
+        Coords_t newVertex;
+        newVertex.x = vertexes[vertexIdx].x + (dx * digPlan.data[i].steps);
+        newVertex.y = vertexes[vertexIdx].y + (dy * digPlan.data[i].steps);
+        vertexIdx++;
+        vertexes[vertexIdx] = newVertex;
     }
 
-    // PrintGrid(grid);
+    //for (int i = 0; i <= digPlan.items; i++)
+    //{
+    //    printf("(%d, %d)\n", vertexes[i].x, vertexes[i].y);
+    //}
 
-    for (int i = 5; i < GRID_HEIGHT - 5; i++)
+    // Calculate area with Shoelace formula
+
+    int area = 0;
+    for (int i = 1; i < digPlan.items; i++)
     {
-        for (int j = 5; j < GRID_WIDTH - 5; j++)
-        {
-            if (grid[i][j].tile == '.' && IsInBox(grid, i, j))
-            {
-                grid[i][j].visited = true;
-            }
-        }
+        area += (vertexes[i - 1].x - vertexes[i + 1].x) * vertexes[i].y;
     }
+    area = abs(area) / 2;
 
-    int changed = 0;
+    printf("area: %d\n", area);
 
-    for (int i = 0; i < GRID_HEIGHT; i++)
+    int boundaryPoints = 0;
+    for (int i = 0; i < digPlan.items; i++)
     {
-        for (int j = 0; j < GRID_WIDTH; j++)
-        {
-            if (grid[i][j].visited || grid[i][j].tile == '#')
-            {
-                changed++;
-                grid[i][j].tile = '#';
-            }
-        }
+        boundaryPoints += digPlan.data[i].steps;
     }
 
-    //PrintGrid(grid);
-    printf("changed: %d\n", changed);
+    // Calculate interior points with Pick's theorem
+    // i = interior points, b = boundary points, A = area
+    // A = i + b/2 - 1
+    // i = A - b/2 + 1
+
+    int interiorPoints = area - (boundaryPoints / 2) + 1;
+    printf("interiorPoints: %d\n", interiorPoints);
+
+    // interior points + boundary points = all points in polygon
+    int pointsSum = interiorPoints + boundaryPoints;
+
+    printf("pointsSum: %d\n", pointsSum);
 
     FreeVector(&digPlan);
     return 0;
