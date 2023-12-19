@@ -22,6 +22,14 @@
 
 typedef long long int lld_t;
 
+typedef enum Parts_t
+{
+    PART_X = 0,
+    PART_M = 1,
+    PART_A = 2,
+    PART_S = 3,
+} Parts_t;
+
 typedef struct Rule_t
 {
     char part;
@@ -37,12 +45,22 @@ typedef struct Workflow_t
     int rulesAmount;
     char finalDestination[WORKFLOW_MAX_LEN];
 } Workflow_t;
-
 typedef struct WorkflowArray_t
 {
     Workflow_t* workflows;
     int itemCout;
 } WorkflowArray_t;
+
+typedef struct Range_t
+{
+    int min;
+    int max;
+} Range_t;
+
+typedef struct XMAS_Ranges_t
+{
+    Range_t ranges[4];
+} XMAS_Ranges_t;
 
 WorkflowArray_t workflowArray;
 
@@ -157,6 +175,75 @@ bool Accepted(int x, int m, int a, int s, char* start)
     return Accepted(x, m, a, s, currWorkflow.finalDestination);
 }
 
+lld_t CountPosibilities(XMAS_Ranges_t ranges, char* start)
+{
+    if (strcmp(start, "A") == 0)
+    {
+        lld_t ret = 1;
+        for (int i = 0; i < 4; i++)
+        {
+            ret *= (ranges.ranges[i].max - ranges.ranges[i].min + 1);
+        }
+        return ret;
+    }
+    if (strcmp(start, "R") == 0)
+    {
+        return 0;
+    }
+
+    lld_t sum = 0;
+
+    Workflow_t currentWorkflow = FindWorkflow(start);
+
+    int rangeIdx = 0;
+
+    for (int i = 0; i < currentWorkflow.rulesAmount; i++)
+    {
+        XMAS_Ranges_t cpyRanges;
+        for (int i = 0; i < 4; i++)
+        {
+            cpyRanges.ranges[i].max = ranges.ranges[i].max;
+            cpyRanges.ranges[i].min = ranges.ranges[i].min;
+        }
+
+        switch (currentWorkflow.rules[i].part)
+        {
+        case 'x':
+            rangeIdx = PART_X;
+            break;
+        case 'm':
+            rangeIdx = PART_M;
+            break;
+        case 'a':
+            rangeIdx = PART_A;
+            break;
+        case 's':
+            rangeIdx = PART_S;
+            break;
+        default:
+            break;
+        }
+        if (currentWorkflow.rules[i].cmp == '<')
+        {
+            cpyRanges.ranges[rangeIdx].max = cpyRanges.ranges[rangeIdx].max > currentWorkflow.rules[i].value ? currentWorkflow.rules[i].value : cpyRanges.ranges[rangeIdx].max;
+            cpyRanges.ranges[rangeIdx].max--;
+
+            ranges.ranges[rangeIdx].min = cpyRanges.ranges[rangeIdx].max + 1;
+        }
+        else // if (currentWorkflow.rules[i].cmp == '>')
+        {
+            cpyRanges.ranges[rangeIdx].min = cpyRanges.ranges[rangeIdx].min < currentWorkflow.rules[i].value ? currentWorkflow.rules[i].value : cpyRanges.ranges[rangeIdx].min;
+            cpyRanges.ranges[rangeIdx].min++;
+
+            ranges.ranges[rangeIdx].max = cpyRanges.ranges[rangeIdx].min - 1;
+        }
+        sum += CountPosibilities(cpyRanges, currentWorkflow.rules[i].desitination);
+    }
+    sum += CountPosibilities(ranges, currentWorkflow.finalDestination);
+
+    return sum;
+}
+
 int main()
 {
 
@@ -240,6 +327,17 @@ int main()
     }
 
     printf("accepted: %lld\n", accepted);
+
+    XMAS_Ranges_t start;
+    for (int i = 0; i < 4; i++)
+    {
+        start.ranges[i].min = 1;
+        start.ranges[i].max = 4000;
+    }
+
+    lld_t possibilites = CountPosibilities(start, "in");
+
+    printf("possibilites: %lld\n", possibilites);
 
     for (int i = 0; i < workflowArray.itemCout; i++)
     {
