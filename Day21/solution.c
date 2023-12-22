@@ -16,6 +16,7 @@
 #define EMPTY_COUNT 14994
 #endif // EXAMPLE
 
+typedef long long int lld_t;
 typedef struct Coords_t
 {
     int x;
@@ -45,9 +46,9 @@ bool InStart(Coords_t starts[EMPTY_COUNT], int startsCount, int x, int y)
     return false;
 }
 
-int MakeSteps(char grid[GRID_SIZE][GRID_SIZE], Coords_t starts[EMPTY_COUNT], int* startsCount)
+lld_t MakeSteps(char grid[GRID_SIZE][GRID_SIZE], Coords_t starts[EMPTY_COUNT], int* startsCount)
 {
-    int reachedPlots     = 0;
+    lld_t reachedPlots   = 0;
     int directions[4][2] = { { 0, 1 }, { 0, -1 }, { 1, 0 }, { -1, 0 } };
 
     Coords_t newStarts[EMPTY_COUNT];
@@ -75,6 +76,19 @@ int MakeSteps(char grid[GRID_SIZE][GRID_SIZE], Coords_t starts[EMPTY_COUNT], int
     return reachedPlots;
 }
 
+lld_t CountSteps(char grid[GRID_SIZE][GRID_SIZE], int x, int y, int steps)
+{
+    Coords_t s = { .x = x, .y = y };
+    Coords_t starts[EMPTY_COUNT];
+    starts[0]          = s;
+    int startsCount    = 1;
+    lld_t reachedPlots = 0;
+    for (int i = 0; i < steps; i++)
+    {
+        reachedPlots = MakeSteps(grid, starts, &startsCount);
+    }
+    return reachedPlots;
+}
 int main()
 {
 
@@ -90,7 +104,6 @@ int main()
 
     char grid[GRID_SIZE][GRID_SIZE];
     Coords_t start = { .x = 0, .y = 0 };
-
     for (int i = 0; i < GRID_SIZE; i++)
     {
         fgets(line, sizeof(line), pInputFile);
@@ -108,17 +121,38 @@ int main()
         }
     }
 
-    Coords_t starts[EMPTY_COUNT];
-    starts[0]       = start;
-    int startsCount = 1;
-
-    int reachedPlots = 0;
-    for (int i = 0; i < 64; i++)
-    {
-        reachedPlots = MakeSteps(grid, starts, &startsCount);
-    }
+    int reachedPlots = CountSteps(grid, start.x, start.y, 64);
 
     printf("steps: %d\n", reachedPlots);
+
+    lld_t steps = 26501365;
+
+    lld_t newGridWidth = (steps / GRID_SIZE) - 1;
+
+    lld_t oddGrids  = newGridWidth * newGridWidth;
+    lld_t evenGrids = (newGridWidth + 1) * (newGridWidth + 1);
+
+    lld_t oddPoints  = CountSteps(grid, start.x, start.y, GRID_SIZE * 2 + 1);
+    lld_t evenPoints = CountSteps(grid, start.x, start.y, GRID_SIZE * 2);
+
+    lld_t topCorner    = CountSteps(grid, GRID_SIZE - 1, start.y, GRID_SIZE - 1);
+    lld_t rightCorner  = CountSteps(grid, start.x, 0, GRID_SIZE - 1);
+    lld_t bottomCorner = CountSteps(grid, 0, start.y, GRID_SIZE - 1);
+    lld_t leftCorner   = CountSteps(grid, start.x, GRID_SIZE - 1, GRID_SIZE - 1);
+
+    lld_t smallTopRightChunk    = CountSteps(grid, GRID_SIZE - 1, 0, (GRID_SIZE / 2) - 1);
+    lld_t smallTopLeftChunk     = CountSteps(grid, GRID_SIZE - 1, GRID_SIZE - 1, (GRID_SIZE / 2) - 1);
+    lld_t smallBottomRightChunk = CountSteps(grid, 0, 0, (GRID_SIZE / 2) - 1);
+    lld_t smallBottomLeftChunk  = CountSteps(grid, 0, GRID_SIZE - 1, (GRID_SIZE / 2) - 1);
+
+    lld_t bigTopRightChunk    = CountSteps(grid, GRID_SIZE - 1, 0, ((GRID_SIZE * 3) / 2) - 1);
+    lld_t bigTopLeftChunk     = CountSteps(grid, GRID_SIZE - 1, GRID_SIZE - 1, ((GRID_SIZE * 3) / 2) - 1);
+    lld_t bigBottomRightChunk = CountSteps(grid, 0, 0, ((GRID_SIZE * 3) / 2) - 1);
+    lld_t bigBottomLeftChunk  = CountSteps(grid, 0, GRID_SIZE - 1, ((GRID_SIZE * 3) / 2) - 1);
+
+    lld_t result = (oddGrids * oddPoints) + (evenGrids * evenPoints) + topCorner + rightCorner + bottomCorner + leftCorner + ((newGridWidth + 1) * (smallBottomLeftChunk + smallBottomRightChunk + smallTopLeftChunk + smallTopRightChunk)) + ((newGridWidth * (bigBottomLeftChunk + bigBottomRightChunk + bigTopLeftChunk + bigTopRightChunk)));
+
+    printf("result: %lld\n", result);
 
     return 0;
 }
