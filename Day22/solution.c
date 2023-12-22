@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define EXAMPLE (0)
 
@@ -27,9 +28,9 @@ typedef struct Brick_t
     Coords_t end;
 } Brick_t;
 
-void PrintBricks(Brick_t bricks[BRICKS_NUM])
+void PrintBricks(Brick_t* bricks, int size)
 {
-    for (int i = 0; i < BRICKS_NUM; i++)
+    for (int i = 0; i < size; i++)
     {
         printf("%d, %d, %d ~ %d, %d, %d\n", bricks[i].start.x, bricks[i].start.y, bricks[i].start.z, bricks[i].end.x, bricks[i].end.y, bricks[i].end.z);
     }
@@ -61,28 +62,26 @@ bool BricksOverlap(Brick_t b1, Brick_t b2)
     return false;
 }
 
-bool IsOnlySupporter(Brick_t bricks[BRICKS_NUM], Brick_t supported, Brick_t skip)
+int CountSupporters(Brick_t* bricks, int size, Brick_t brick)
 {
     int supporters = 0;
-    for (int i = 0; i < BRICKS_NUM; i++)
+    for (int i = 0; i < size; i++)
     {
-        if (BricksEqual(bricks[i], skip))
-            continue;
-        if (bricks[i].end.z + 1 == supported.start.z && BricksOverlap(bricks[i], supported))
+        if (bricks[i].end.z + 1 == brick.start.z && BricksOverlap(bricks[i], brick) && !BricksEqual(bricks[i], brick))
             supporters++;
     }
-    return supporters == 0;
+    return supporters;
 }
 
-bool CanBeDisintegrated(Brick_t bricks[BRICKS_NUM], Brick_t brick)
+bool CanBeDisintegrated(Brick_t* bricks, int size, Brick_t brick)
 {
     bool canBeDisintegrated = true;
-    for (int i = BRICKS_NUM - 1; i >= 0; i--)
+    for (int i = size - 1; i >= 0; i--)
     {
         if (BricksEqual(bricks[i], brick))
             break;
 
-        if ((bricks[i].start.z == brick.end.z + 1 && BricksOverlap(bricks[i], brick) && IsOnlySupporter(bricks, bricks[i], brick)))
+        if ((bricks[i].start.z == brick.end.z + 1 && BricksOverlap(bricks[i], brick) && CountSupporters(bricks, size, bricks[i]) == 1))
         {
             canBeDisintegrated = false;
             break;
@@ -100,12 +99,12 @@ int CmpBricks(const void* a, const void* b)
     return b1->start.z - b2->start.z;
 }
 
-bool IsMinimum(Brick_t bricks[BRICKS_NUM], Brick_t b)
+bool IsMinimum(Brick_t* bricks, int size, Brick_t b)
 {
     if (b.start.z == 1)
         return true;
 
-    for (int i = 0; i < BRICKS_NUM; i++)
+    for (int i = 0; i < size; i++)
     {
         if (BricksEqual(bricks[i], b))
             return false;
@@ -118,17 +117,25 @@ bool IsMinimum(Brick_t bricks[BRICKS_NUM], Brick_t b)
     return false;
 }
 
-void FallBricks(Brick_t bricks[BRICKS_NUM])
+int FallBricks(Brick_t* bricks, int size)
 {
-    for (int i = 0; i < BRICKS_NUM; i++)
+    bool count = true;
+    int fallen = 0;
+    for (int i = 0; i < size; i++)
     {
-        while (!IsMinimum(bricks, bricks[i]))
+        while (!IsMinimum(bricks, size, bricks[i]))
         {
-            // printf("%d\n", i);
+            if (count)
+            {
+                count = false;
+                fallen++;
+            }
             bricks[i].start.z--;
             bricks[i].end.z--;
         }
+        count = true;
     }
+    return fallen;
 }
 
 void SwapCoords(Brick_t* brick)
@@ -164,22 +171,33 @@ int main()
         }
     }
 
-    // PrintBricks(bricks);
     qsort(bricks, BRICKS_NUM, sizeof(Brick_t), CmpBricks);
 
-    FallBricks(bricks);
+    FallBricks(bricks, BRICKS_NUM);
 
-    // PrintBricks(bricks);
-
-    int sum = 0;
-
+    int desintegratedSum = 0;
     for (int i = BRICKS_NUM - 1; i >= 0; i--)
     {
-        if (CanBeDisintegrated(bricks, bricks[i]))
-            sum += 1;
+        if (CanBeDisintegrated(bricks, BRICKS_NUM, bricks[i]))
+            desintegratedSum += 1;
     }
 
-    printf("Can be disintegrated: %d\n", sum);
+    printf("Can be desintegrated: %d\n", desintegratedSum);
+
+    int chainReactionSum = 0;
+    Brick_t cpyBricks[BRICKS_NUM];
+    for (int i = 0; i < BRICKS_NUM; i++)
+    {
+        memcpy(cpyBricks, bricks, sizeof(cpyBricks));
+        Brick_t tmp               = cpyBricks[i];
+        cpyBricks[i]              = cpyBricks[BRICKS_NUM - 1];
+        cpyBricks[BRICKS_NUM - 1] = tmp;
+        qsort(cpyBricks, BRICKS_NUM - 1, sizeof(Brick_t), CmpBricks);
+
+        chainReactionSum += FallBricks(cpyBricks, BRICKS_NUM - 1);
+    }
+
+    printf("Chain reaction: %d\n", chainReactionSum);
 
     return 0;
 }
