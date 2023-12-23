@@ -21,30 +21,36 @@ typedef struct Coords_t
     int y;
 } Coords_t;
 
-bool LegalMove(char grid[GRID_SIZE][GRID_SIZE], int x, int y, int dx, int dy)
+typedef struct Field_t
+{
+    char value;
+    bool seen;
+} Field_t;
+
+bool LegalMove(Field_t grid[GRID_SIZE][GRID_SIZE], int x, int y, int dx, int dy)
 {
     if (x + dx >= GRID_SIZE || x + dx < 0 || y + dy >= GRID_SIZE || y + dy < 0)
         return false;
-    if (grid[y + dy][x + dx] == '#' || (dx == -1 && grid[y + dy][x + dx] == '>') || (dy == -1 && grid[y + dy][x + dx] == 'v'))
+    if (grid[y + dy][x + dx].value == '#' || grid[y + dy][x + dx].seen)
         return false;
     return true;
 }
 
-int CalculateSteps(char grid[GRID_SIZE][GRID_SIZE], int x, int y, int dx, int dy, int steps)
+int CalculateSteps(Field_t grid[GRID_SIZE][GRID_SIZE], int x, int y, int dx, int dy, int steps)
 {
+    // printf("Calculate steps, x: %d, y: %d, dx: %d, dy: %d, steps: %d\n", x, y, dx, dy, steps);
     int directions[4][2] = { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 } };
     int newSteps         = steps;
 
+    grid[y][x].seen = true;
+
     while (y != GRID_SIZE - 1 || x != GRID_SIZE - 2)
     {
-        bool foundAtLeastOneWay = false;
+        // printf("x: %d, y: %d, dx: %d, dy: %d, steps: %d\n", x, y, dx, dy, steps);
 
-        int oldDx = dx;
-        int oldDy = dy;
+        bool foundAtLeastOneWay = false;
         for (int i = 0; i < 4; i++)
         {
-            if ((oldDy != 0 && directions[i][1] == (-1 * oldDy)) || (oldDx != 0 && directions[i][0] == (-1 * oldDx))) // dont go back
-                continue;
             if (LegalMove(grid, x, y, directions[i][0], directions[i][1]))
             {
                 if (!foundAtLeastOneWay)
@@ -56,7 +62,9 @@ int CalculateSteps(char grid[GRID_SIZE][GRID_SIZE], int x, int y, int dx, int dy
                 }
                 else
                 {
-                    int tmpSteps = CalculateSteps(grid, x + directions[i][0], y + directions[i][1], directions[i][0], directions[i][1], steps + 1);
+                    Field_t gridCpy[GRID_SIZE][GRID_SIZE];
+                    memcpy(gridCpy, grid, sizeof(gridCpy));
+                    int tmpSteps = CalculateSteps(gridCpy, x + directions[i][0], y + directions[i][1], directions[i][0], directions[i][1], steps + 1);
                     if (tmpSteps > newSteps)
                     {
                         newSteps = tmpSteps;
@@ -64,14 +72,21 @@ int CalculateSteps(char grid[GRID_SIZE][GRID_SIZE], int x, int y, int dx, int dy
                 }
             }
         }
+        if (!foundAtLeastOneWay)
+        {
+            return newSteps;
+        }
+
         if (LegalMove(grid, x, y, dx, dy))
         {
             x += dx;
             y += dy;
             steps++;
+            grid[y][x].seen = true;
         }
     }
-    return steps > newSteps ? steps : newSteps;
+    int ret = steps > newSteps ? steps : newSteps;
+    return ret;
 }
 int main()
 {
@@ -86,7 +101,7 @@ int main()
         return -1;
     }
 
-    char grid[GRID_SIZE][GRID_SIZE];
+    Field_t grid[GRID_SIZE][GRID_SIZE];
     for (int i = 0; i < GRID_SIZE; i++)
     {
         fgets(line, sizeof(line), pInputFile);
@@ -95,9 +110,11 @@ int main()
 
         for (int j = 0; j < GRID_SIZE; j++)
         {
-            grid[i][j] = line[j];
+            grid[i][j].value = line[j];
+            grid[i][j].seen  = false;
         }
     }
+
     int result = CalculateSteps(grid, 1, 0, 0, 1, 0);
     printf("result: %d\n", result);
 
